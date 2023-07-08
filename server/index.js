@@ -10,6 +10,36 @@ let admins = [];
 let courses = [];
 let users = [];
 
+// Middlewares
+// Admin Authentication
+const adminAuthentication = (req, res, next) => {
+  const { username, password } = req.headers;
+  const admin = admins.find(
+    (admin) => admin.username === username && admin.password === password
+  );
+  if (admin) {
+    next();
+  } else {
+    res.status(403).send({ message: "Admin authentication failed" });
+  }
+};
+
+// User Authentication
+
+const userAuthentication = (req, res, next) => {
+  const { username, password } = req.headers;
+  const user = users.find(
+    (user) => user.username === username && user.password === password
+  );
+
+  if (user) {
+    req.user = user;
+    next();
+  } else {
+    res.status(403).send({ message: "User authentication failed" });
+  }
+};
+
 app.get("/", (req, res) => {
   res.send("Course App which let's you create course and publish it");
 });
@@ -34,24 +64,12 @@ app.post("/admin/signup", (req, res) => {
 });
 
 // Login
-app.post("/admin/login", (req, res) => {
-  // const { username, password } = req.headers;
-  const username = req.headers.username;
-  const password = req.headers.password;
-  const existingAdmin = admins.find(
-    (admin) => username === admin.username && password === admin.password
-  );
-  if (existingAdmin) {
-    res.json({ message: "Logged in successfully" });
-  } else {
-    res.status(400).send({ message: "Invalid Credentials" });
-  }
+app.post("/admin/login", adminAuthentication, (req, res) => {
+  res.json({ message: "Loggedin successfully" });
 });
 
 // Create Course
-app.post("/admin/courses", (req, res) => {
-  const username = req.headers.username;
-  const password = req.headers.password;
+app.post("/admin/courses", adminAuthentication, (req, res) => {
   const course = {
     id: Math.floor(Math.random() * 10000),
     title: req.body.title,
@@ -60,70 +78,36 @@ app.post("/admin/courses", (req, res) => {
     image: "https://source.unsplash.com/random",
     published: req.body.published,
   };
-  const authenticatedAdmin = admins.find(
-    (admin) => username === admin.username && password === admin.password
-  );
-  if (authenticatedAdmin) {
-    courses.push(course);
-    res.json({ message: "Course created successfully", courseId: course.id });
-  } else {
-    res.status(401).send({ meassge: "You are not authenicated" });
-  }
+
+  courses.push(course);
+  res.json({ message: "Course created successfully", courseId: course.id });
 });
 
 // Update specific course
-app.put("/admin/courses/:id", (req, res) => {
-  const username = req.headers.username;
-  const password = req.headers.password;
-  const authenticatedAdmin = admins.find(
-    (admin) => username === admin.username && password === admin.password
-  );
-  if (authenticatedAdmin) {
-    const id = Number(req.params.id);
-    const existingCourse = courses.find((course) => id === course.id);
-    if (existingCourse) {
-      existingCourse.title = req.body.title;
-      existingCourse.description = req.body.description;
-      existingCourse.price = req.body.price;
-      existingCourse.image = "https://source.unsplash.com/random";
-      existingCourse.published = req.body.published;
-      res.json(existingCourse);
-    } else {
-      res.status(400).send({ message: "course not found" });
-    }
+app.put("/admin/courses/:id", adminAuthentication, (req, res) => {
+  const id = Number(req.params.id);
+  const existingCourse = courses.find((course) => id === course.id);
+  if (existingCourse) {
+    Object.assign(existingCourse, req.body);
+    res.json({ message: "Course updated successfully" });
   } else {
-    res.status(401).send({ meassge: "You are not authenicated" });
+    res.status(400).send({ message: "course not found" });
   }
 });
 
 // Get courses
-app.get("/admin/courses", (req, res) => {
-  const username = req.headers.username;
-  const password = req.headers.password;
-  const authenticatedAdmin = admins.find(
-    (admin) => username === admin.username && password === admin.password
-  );
-  if (authenticatedAdmin) {
-    res.json(courses);
-  } else {
-    res.status(401).send({ meassge: "You are not authenicated" });
-  }
+app.get("/admin/courses", adminAuthentication, (req, res) => {
+  res.json(courses);
 });
 
 // Users Routes
 
 // Signup
 app.post("/users/signup", (req, res) => {
-  const { name, email, username, password } = req.body;
-  const user = {
-    name: name,
-    email: email,
-    username: username,
-    password: password,
-    courses: [],
-  };
+  const { email, username } = req.body;
+  const user = { ...req.body, purchasedCourses: [] };
   const existingUser = users.find(
-    (user) => user.username === username && user.email === email
+    (user) => user.username === username || user.email === email
   );
   if (!existingUser) {
     users.push(user);
@@ -134,58 +118,35 @@ app.post("/users/signup", (req, res) => {
 });
 
 // Login
-app.post("/users/login", (req, res) => {
-  const username = req.headers.username;
-  const password = req.headers.password;
-
-  const existingUser = users.find(
-    (user) => user.username === username && user.password === password
-  );
-  if (existingUser) {
-    res.send({ message: "Logged in successfully" });
-  } else {
-    res.status(400).send({ message: "Invalid credentials" });
-  }
+app.post("/users/login", userAuthentication, (req, res) => {
+  res.send({ message: "Logged in successfully" });
 });
 
-app.get("/users/courses", (req, res) => {
+// Get courses Available
+app.get("/users/courses", userAuthentication, (req, res) => {
   res.json(courses);
 });
-app.post("/users/courses/:id", (req, res) => {
-  const username = req.headers.username;
-  const password = req.headers.password;
+
+// Buy Course
+app.post("/users/courses/:id", userAuthentication, (req, res) => {
   const id = Number(req.params.id);
-  const existingUser = users.find(
-    (user) => user.username === username && user.password === password
+  const courseAvailable = req.user.purchasedCourses.find(
+    (course) => course.id === id
   );
-  if (existingUser) {
-    const courseAvailable = existingUser.courses.find(
-      (course) => course.id === id
-    );
-    if (!courseAvailable) {
-      existingUser.courses.push(courses.find((course) => course.id === id));
-      res.json(existingUser.courses);
-    } else {
-      res.status(400).send({ message: "course already purchased" });
-    }
+  if (!courseAvailable) {
+    req.user.purchasedCourses.push(courses.find((course) => course.id === id));
+    res.send({ message: `Course purchased successfully id ${id}` });
   } else {
-    res.status(400).send("Please login or create account to purchase course");
+    res.status(400).send({ message: "course already purchased" });
   }
 });
 
-app.get("/users/purchasedCourses", (req, res) => {
-  const username = req.headers.username;
-  const password = req.headers.password;
-  const existingUser = users.find(
-    (user) => user.username === username && user.password === password
-  );
-  if (existingUser) {
-    res.json(existingUser.courses);
-  } else {
-    res.status(404).send("User not found");
-  }
+// Show Purchased courses
+app.get("/users/purchasedCourses", userAuthentication, (req, res) => {
+  res.json(req.user.purchasedCourses);
 });
 
+// Invalid Routes
 app.all("*", (req, res) => {
   res.status(404).send("Route not found");
 });
