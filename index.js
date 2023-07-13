@@ -9,12 +9,9 @@ const app = express();
 app.use(express.json());
 app.use(bodyParser.json());
 
-// let admins = [];
-// let courses = [];
-// let users = [];
-
 // Mongoose Schema
 const userSchema = new mongoose.Schema({
+  email: String,
   username: String,
   password: String,
   purchasedCourses: [{ type: mongoose.Schema.Types.ObjectId, ref: "Course" }],
@@ -28,6 +25,7 @@ const adminSchema = new mongoose.Schema({
 const courseSchema = new mongoose.Schema({
   title: String,
   description: String,
+  tag: String,
   price: Number,
   imageLink: String,
   published: Boolean,
@@ -103,14 +101,6 @@ app.post("/admin/login", async (req, res) => {
 
 // Create Course
 app.post("/admin/courses", authenticateJWT, async (req, res) => {
-  // const course = {
-  //   id: Math.floor(Math.random() * 10000),
-  //   title: req.body.title,
-  //   description: req.body.description,
-  //   price: req.body.price,
-  //   image: "https://source.unsplash.com/random",
-  //   published: req.body.published,
-  // };
   const course = new Course(req.body);
   await course.save();
   res.json({ message: "Course created successfully", courseId: course.id });
