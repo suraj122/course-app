@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 const adminRouter = require("./routes/admin");
 const userRouter = require("./routes/user");
+require("dotenv").config();
 
 const app = express();
 app.use(express.json());
@@ -12,10 +13,18 @@ app.use("/admin", adminRouter);
 app.use("/users", userRouter);
 
 // Connect Mongoose
-mongoose.connect(
-  "mongodb+srv://suraj122:suraj122@cluster0.ykjpt3l.mongodb.net/courses",
-  { useNewUrlParser: true, useUnifiedTopology: true, dbName: "courses" }
-);
+mongoose
+  .connect(process.env.MONGODB_URI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    dbName: "courses",
+  })
+  .then(() => {
+    console.log("Connected to the database");
+  })
+  .catch((err) => {
+    console.error("Error connecting to the database:", err.message);
+  });
 
 app.get("/", (req, res) => {
   res.send("Course App which let's you create course and publish it");
