@@ -27,7 +27,16 @@ mongoose
   });
 
 app.get("/", (req, res) => {
-  res.send("Course App which let's you create course and publish it");
+  res.send(
+    `<h1 style="padding: 32px 120px; text-align: center; margin-top: 32px">
+      SkillLynx allows users to sign up, log in, explore a wide range of
+      courses, and make purchases.
+      <br />
+      The app also features an admin panel where
+      administrators can log in, sign up, create courses, and publish or keep
+      them unpublished.
+    </h1>`
+  );
 });
 
 // Invalid Routes
